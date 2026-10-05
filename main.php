@@ -2,7 +2,7 @@
 /**
  * Plugin Name: OVH Mailer
  * Description: Configure WordPress email delivery through OVH SMTP.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Requires at least: 5.5
  * Requires PHP: 7.1
  * Author: Our Random Codes
@@ -12,7 +12,8 @@
 defined( 'ABSPATH' ) || exit;
 
 class OVH_Mailer {
-	private const OPTION_NAME = 'ovh_mailer_options';
+	private const OPTION_NAME          = 'ovh_mailer_options';
+	private const PASSWORD_PLACEHOLDER = '●●●●●●●●';
 
 	public function __construct() {
 		add_action( 'admin_menu', [ $this, 'admin_menu' ] );
@@ -72,13 +73,22 @@ class OVH_Mailer {
 	 * Sanitize settings
 	 */
 	public function sanitize_options( $input ) {
-		$options             = [];
-		$options['login']    = isset( $input['login'] ) ? sanitize_text_field( $input['login'] ) : '';
-		$options['password'] = isset( $input['password'] ) ? sanitize_text_field( $input['password'] ) : '';
-		$options['port']     = in_array( (int) ( $input['port'] ?? 465 ), [ 465, 993, 995 ], true )
+		$options          = [];
+		$options['login'] = isset( $input['login'] ) ? sanitize_text_field( $input['login'] ) : '';
+
+		// If the user left the placeholder untouched, keep the existing saved password.
+		$submitted_password = isset( $input['password'] ) ? $input['password'] : '';
+		if ( $submitted_password === self::PASSWORD_PLACEHOLDER ) {
+			$existing            = get_option( self::OPTION_NAME, [] );
+			$options['password'] = isset( $existing['password'] ) ? $existing['password'] : '';
+		} else {
+			$options['password'] = sanitize_text_field( $submitted_password );
+		}
+
+		$options['port']    = in_array( (int) ( $input['port'] ?? 465 ), [ 465, 993, 995 ], true )
 			? (int) $input['port']
 			: 465;
-		$options['enabled']  = ! empty( $input['enabled'] ) ? 1 : 0;
+		$options['enabled'] = ! empty( $input['enabled'] ) ? 1 : 0;
 
 		return $options;
 	}
@@ -211,6 +221,9 @@ class OVH_Mailer {
 		$default_test_email = $current_user->user_email;
 		$option_name        = self::OPTION_NAME;
 		$plugin_url         = plugin_dir_url( __FILE__ );
+		// Never expose the real password — use the placeholder when one is saved.
+		$password_placeholder        = self::PASSWORD_PLACEHOLDER;
+		$options['password']         = ! empty( $options['password'] ) ? self::PASSWORD_PLACEHOLDER : '';
 		include plugin_dir_path( __FILE__ ) . 'views/settings-page.php';
 	}
 }

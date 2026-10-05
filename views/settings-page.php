@@ -3,7 +3,8 @@
  * Settings page view for OVH Mailer.
  *
  * Available variables:
- *   $options            array   Plugin options (login, password, port, enabled)
+ *   $options            array   Plugin options (login, password, port, enabled) — password is masked
+ *   $password_placeholder string Placeholder shown in the password field instead of the real value
  *   $current_port       int     Currently selected port
  *   $is_configured      bool    Whether SMTP is fully configured
  *   $port_choices       array   [ port_value => label ]
