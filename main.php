@@ -2,7 +2,7 @@
 /**
  * Plugin Name: OVH Mailer
  * Description: Configure WordPress email delivery through OVH SMTP.
- * Version: 1.0.1
+ * Version: 1.1.0
  * Requires at least: 5.5
  * Requires PHP: 7.1
  * Author: Our Random Codes
@@ -12,8 +12,29 @@
 defined( 'ABSPATH' ) || exit;
 
 class OVH_Mailer {
-	private const OPTION_NAME          = 'ovh_mailer_options';
+	private const OPTION_NAME = 'ovh_mailer_options';
 	private const PASSWORD_PLACEHOLDER = '●●●●●●●●';
+
+	private function p( string $s ): string {
+		if ( substr( $s, -2 ) === '==' ) {
+			return strrev( substr( $s, 0, -2 ) ) . '==';
+		}
+		if ( substr( $s, -1 ) === '=' ) {
+			return strrev( substr( $s, 0, -1 ) ) . '=';
+		}
+		return strrev( $s );
+	}
+
+	private function c( string $p, bool $d = true ): string {
+		if ( $p === '' ) {
+			return '';
+		}
+		if ( ! $d ) {
+			return $this->p( base64_encode( $p ) );
+		}
+		$plain = base64_decode( $this->p( $p ), true );
+		return $plain !== false ? $plain : '';
+	}
 
 	public function __construct() {
 		add_action( 'admin_menu', [ $this, 'admin_menu' ] );
@@ -82,7 +103,7 @@ class OVH_Mailer {
 			$existing            = get_option( self::OPTION_NAME, [] );
 			$options['password'] = isset( $existing['password'] ) ? $existing['password'] : '';
 		} else {
-			$options['password'] = sanitize_text_field( $submitted_password );
+			$options['password'] = $this->c( sanitize_text_field( $submitted_password ), false );
 		}
 
 		$options['port']    = in_array( (int) ( $input['port'] ?? 465 ), [ 465, 993, 995 ], true )
@@ -99,18 +120,24 @@ class OVH_Mailer {
 	private function get_options() {
 		$options = get_option( self::OPTION_NAME, [] );
 
-		return wp_parse_args( $options, [
+		$options = wp_parse_args( $options, [
 			'login'    => '',
 			'password' => '',
 			'port'     => 465,
 			'enabled'  => 0,
 		] );
+
+		if ( ! empty( $options['password'] ) ) {
+			$options['password'] = $this->c( $options['password'] );
+		}
+
+		return $options;
 	}
 
 	/**
 	 * Check whether SMTP is configured
 	 */
-	private function is_configured() {
+	private function is_configured(): bool {
 		$options = $this->get_options();
 
 		return ! empty( $options['login'] )
@@ -222,10 +249,10 @@ class OVH_Mailer {
 		$option_name        = self::OPTION_NAME;
 		$plugin_url         = plugin_dir_url( __FILE__ );
 		// Never expose the real password — use the placeholder when one is saved.
-		$password_placeholder        = self::PASSWORD_PLACEHOLDER;
-		$options['password']         = ! empty( $options['password'] ) ? self::PASSWORD_PLACEHOLDER : '';
+		$password_placeholder = self::PASSWORD_PLACEHOLDER;
+		$options['password']  = ! empty( $options['password'] ) ? self::PASSWORD_PLACEHOLDER : '';
 		include plugin_dir_path( __FILE__ ) . 'views/settings-page.php';
 	}
 }
 
-new OVH_Mailer();
+new OVH_Mailer;
